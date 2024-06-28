@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src='https://etx-nec.s3.us-west-2.amazonaws.com/simcapi-js-3.0.6.min.js'></script>
+</head>
+
+<body>
+    <div id="elm-code-is-loaded-here"></div>
+
+    <script src="app.js"></script>
+    <script>
+        var model = new simcapi.CapiAdapter.CapiModel({
+            mastery: false,
+            threshold: 2,
+            window: 3,
+        });
+
+        //Tells pipit to expose the following attributes
+        simcapi.CapiAdapter.expose('mastery', model);
+        simcapi.CapiAdapter.expose('threshold', model);
+        simcapi.CapiAdapter.expose('window', model);
+
+        // Tells pipit that the sim model is ready
+        simcapi.Transporter.notifyOnReady();
+
+        var app = app = Elm.Main.init({
+            node: document.getElementById("elm-code-is-loaded-here"),
+            flags: {
+                winWidth: window.innerWidth,
+                winHeight: window.innerHeight
+            }
+        });
+
+        function reportChange(whatChanged) {
+            console.log("new " + whatChanged);
+            app.ports.getFromTorus.send({
+                'threshold': model.get('threshold'),
+                'window': model.get('window'),
+            });
+        }
+
+        model.on('change:threshold', function () {
+            reportChange('threshold');
+        });
+
+        model.on('change:window', function () {
+            reportChange('window');
+        });
+
+        app.ports.sendToTorus.subscribe(function (mastery) {
+            console.log("Data from Elm: ", mastery);
+            model.set('mastery', mastery);
+            alert("Congratulations! You're ready to move on. Press the NEXT button to advance to the next slide.");
+            simcapi.Transporter.triggerCheck();
+        });
+    </script>
+</body>
+
+</html>
