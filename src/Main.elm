@@ -7,15 +7,25 @@ elm install elm/random
 
 elm make src/Main.elm --output=app.js --debug
 
+To Do:
+* shuffle possible answers https://package.elm-lang.org/packages/elm-community/random-extra/latest/Random-List
+* check whether mastery has been established
+
 --}
 
 
 port module Main exposing (..)
 
+import Array
 import Browser
 import Browser.Events
 import Element
+import Element.Background
+import Element.Border
+import Element.Font
+import Element.Input
 import Html
+import Random
 
 
 main : Program WindowDimensions Model Msg
@@ -125,6 +135,50 @@ emptyProgressBar masteryWindow =
     List.repeat masteryWindow Nothing
 
 
+addToProgressBar : MasterySettings -> ProgressBar -> RightOrWrong -> ProgressBar
+addToProgressBar masterySettings progressBar progress =
+    -- Add the latest progress (right or wrong) to the front of...
+    Just progress
+        -- the current progress bar with the last item removed
+        :: List.take (masterySettings.window - 1) progressBar
+
+
+viewProgressBar : ProgressBar -> Element.Element Msg
+viewProgressBar progressBar =
+    let
+        -- Creates an empty element with a border (a box) for each item in progress list
+        drawProgressBox p =
+            let
+                fillColor =
+                    case p of
+                        Just RightAnswer ->
+                            Element.rgb255 0 255 0
+
+                        Just WrongAnswer ->
+                            Element.rgb255 255 0 0
+
+                        Nothing ->
+                            Element.rgb 255 255 255
+            in
+            Element.el
+                [ Element.Background.color fillColor
+                , Element.padding 10
+                , Element.Border.rounded 6
+                , Element.Border.width 3
+                , Element.Border.color (Element.rgb255 0 0 0)
+                , Element.height Element.fill
+                , Element.width (Element.fillPortion 1)
+                ]
+                Element.none
+    in
+    Element.row
+        [ Element.width Element.fill
+        , Element.height (Element.fillPortion 1)
+        , Element.padding 20
+        ]
+        (List.map drawProgressBox progressBar)
+
+
 
 {--
 A multiple choice question has three parts: 
@@ -170,6 +224,18 @@ anotherDistractor =
     }
 
 
+
+-- I use the QuestionType to store the random values I need for each
+-- different kind of question I want to ask
+
+
+type
+    QuestionType
+    -- Which of these options is a valid response variable for a
+    -- linear regression equation?
+    = LinearRegressionResponseVariable
+
+
 type QuestionImage
     = ImgDummy
 
@@ -189,7 +255,87 @@ emptyQuestion =
     }
 
 
+viewQuestion : Question -> Element.Element Msg
+viewQuestion question =
+    let
+        -- drawButton is used to add one button to the panel for each possible answer
+        -- presented to the user
+        drawButton btn =
+            Element.Input.button
+                [ Element.padding 10
+                , Element.Border.width 3
+                , Element.Border.rounded 6
+                , Element.Border.color (Element.rgb255 0 0 0)
+                , Element.Font.variant Element.Font.smallCaps
+                , Element.width (Element.fillPortion 1)
+                ]
+                { onPress = Just (MsgUserResponded btn)
+                , label = Element.el [ Element.centerX ] (Element.text btn.textPart)
+                }
+    in
+    Element.column
+        [ Element.width Element.fill
+        , Element.height (Element.fillPortion 3)
+        , Element.padding 20
+        , Element.explain Debug.todo
+        ]
+        [ Element.row
+            [ Element.width Element.fill ]
+            [ Element.column
+                [ Element.width (Element.fillPortion 1)
+                , Element.padding 10
+                ]
+                [ Element.text question.stem ]
+            , viewQuestionImage question.image
+            ]
+        , Element.row
+            [ Element.width Element.fill ]
+            (List.map drawButton question.possibleResponses)
+        ]
 
+
+viewQuestionImage : Maybe QuestionImage -> Element.Element Msg
+viewQuestionImage questionImage =
+    Element.column
+        [ Element.width (Element.fillPortion 1)
+        , Element.padding 10
+        ]
+        [ Element.el
+            [ Element.centerX
+            , Element.width (Element.px 300)
+            , Element.height (Element.px 300)
+            ]
+            Element.none
+        ]
+
+
+
+{--
+viewScatterPlot : ScatterPlot -> Element.Element Msg
+viewScatterPlot sPlot =
+    Element.html
+        (Chart.chart
+            [ Chart.Attributes.height 300
+            , Chart.Attributes.width 300
+            , Chart.Attributes.padding { top = 30, bottom = 5, left = 40, right = 40 }
+            ]
+            [ Chart.xLabels [ Chart.Attributes.withGrid ]
+            , Chart.yLabels [ Chart.Attributes.withGrid ]
+            , Chart.series .x
+                [ Chart.scatter .y [ Chart.Attributes.opacity 0.3, Chart.Attributes.borderWidth 1 ]
+                    |> Chart.variation (\_ data -> [ Chart.Attributes.size data.size ])
+                , Chart.scatter .z [ Chart.Attributes.opacity 0.3, Chart.Attributes.borderWidth 1 ]
+                    |> Chart.variation (\_ data -> [ Chart.Attributes.size data.size ])
+                ]
+                [ { x = 1, y = 2, z = 3, size = 450 }
+                , { x = 2, y = 3, z = 5, size = 350 }
+                , { x = 3, y = 4, z = 2, size = 150 }
+                , { x = 4, y = 1, z = 3, size = 550 }
+                , { x = 5, y = 4, z = 1, size = 450 }
+                ]
+            ]
+        )
+--}
 {-
    This is the model for the state. I keep the question in here along with keeping track of
    the user's response to the question being asked, how many questions the user has gotten
@@ -219,7 +365,7 @@ createNewModel newWindowDimensions newMasterySettings =
 initializeModel : WindowDimensions -> ( Model, Cmd Msg )
 initializeModel windowDimensions =
     ( createNewModel windowDimensions defaultMasterySettings
-    , Cmd.none
+    , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
     )
 
 
@@ -245,6 +391,9 @@ type Msg
     = MsgSendToTorus -- The user reached the threshold, go back to Torus (send to JavaScript)
     | MsgGetFromTorus MasterySettings -- Settings for mastery questions coming in from Torus (get from JavaScript)
     | MsgWindowSizeChanged Int Int -- Window changed size - maybe the device was rotated, maybe a change in the window
+    | MsgGetNewQuestion QuestionType -- Create a new random question of type <QuestionType>
+    | MsgGotNewQuestion Question -- I just created a new random question, display it
+    | MsgUserResponded QuestionResponse -- User pressed a button to choose an answer to the question
 
 
 updateModel : Msg -> Model -> ( Model, Cmd Msg )
@@ -284,8 +433,36 @@ updateModel msg model =
             , Cmd.none
             )
 
+        -- We need a new random "which of these makes a good response variable?" question
+        MsgGetNewQuestion LinearRegressionResponseVariable ->
+            ( model
+            , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
+            )
+
+        -- We just got a new random question, so display it and wait for the user to respond
+        MsgGotNewQuestion newQuestion ->
+            ( { model | currentQuestion = newQuestion }
+            , Cmd.none
+            )
+
+        -- The user responded, provide feedback, update the progress bar, check whether we're done or if
+        -- we should generate another question
+        MsgUserResponded userResponse ->
+            let
+                rightOrWrong =
+                    if userResponse.correctAnswer then
+                        RightAnswer
+
+                    else
+                        WrongAnswer
+            in
+            ( { model | progressBar = addToProgressBar model.masterySettings model.progressBar rightOrWrong }
+            , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
+            )
 
 
+
+-- We need to generate a new random question
 {-
    The view consists of five stacked panels. I only display/update the panels that I need to at any given time.
 
@@ -314,6 +491,8 @@ viewModel model =
         (Element.column
             [ Element.width Element.fill ]
             [ viewInstructionsPanel model.masterySettings
+            , viewQuestion model.currentQuestion
+            , viewProgressBar model.progressBar
             , viewDebugPanel model
             ]
         )
@@ -354,3 +533,107 @@ viewDebugPanel model =
 
     else
         Element.none
+
+
+nominalMeasures : List String
+nominalMeasures =
+    [ "gender"
+    , "marital status"
+    , "ethnicity"
+    , "job title"
+    , "employer"
+    , "brand of wheelchair"
+    , "type of prosthetic ('passive', 'body-powered' or 'myoelectric')"
+    ]
+
+
+ordinalMeasures : List String
+ordinalMeasures =
+    [ "education level (e.g., 'elementary', 'high school', 'college'...)"
+    , "military rank (e.g., 'private', 'corporal', 'sergeant'...)"
+    , "product quality (on a scale of 'poor', 'average', 'good' or 'excellent')"
+    , "clothing size (e.g., 'small', 'medium', 'large'...)"
+    , "frequency of occurrence (on a scale of 'never', 'rarely', 'sometimes', 'always')"
+    ]
+
+
+intervalMeasures : List String
+intervalMeasures =
+    [ "temperature (in degrees Celsius)"
+    , "Functional Independence Measure (FIM) score (ranges from 18 to 126)"
+    , "Berg Balance Scale (BBS) score (ranges from 0 to 56)"
+    , "Modified Ashworth Scale score (ranges from 0 to 5)"
+    , "Mini-Mental State Exam (MMSE) score (ranges from 0 to 30)"
+    , "Beck Depression Inventory (BDI) score (ranges from 0 to 63)"
+    ]
+
+
+ratioMeasures : List String
+ratioMeasures =
+    [ "blood pressure"
+    , "weight (in pounds)"
+    , "height (in inches)"
+    , "heart rate (in beats per minute)"
+    , "grip strength (in pounds)"
+    , "age (in years)"
+    , "the number of ADLs a client can complete independently"
+    , "the number of verbal outbursts a child makes during a single class period"
+    , "the number of falls an individual has in a month"
+    , "score on Timed Up and Go (TUG) test (in seconds)"
+    ]
+
+
+rightAnswers : Array.Array String
+rightAnswers =
+    intervalMeasures
+        ++ ratioMeasures
+        |> Array.fromList
+
+
+distractors : Array.Array String
+distractors =
+    nominalMeasures
+        ++ ordinalMeasures
+        |> Array.fromList
+
+
+fillInLinearRegressionResponseVariableQuestion : Array.Array String -> Array.Array String -> Int -> Int -> Int -> Question
+fillInLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray correctAnswerIndex distractorIndex1 distractorIndex2 =
+    let
+        correctAnswerLocal : QuestionResponse
+        correctAnswerLocal =
+            { textPart = Maybe.withDefault "This was supposed to be the right answer" (Array.get correctAnswerIndex rightAnswersArray)
+            , feedback = "You chose the right answer"
+            , correctAnswer = True
+            }
+
+        distractor1Local : QuestionResponse
+        distractor1Local =
+            { textPart = Maybe.withDefault "This was supposed to be an incorrect answer" (Array.get distractorIndex1 distractorsArray)
+            , feedback = "A response variable for linear regression must be an interval or ratio measure"
+            , correctAnswer = False
+            }
+
+        distractor2Local : QuestionResponse
+        distractor2Local =
+            { textPart = Maybe.withDefault "This was supposed to be an incorrect answer" (Array.get distractorIndex2 distractorsArray)
+            , feedback = "A response variable for linear regression must be an interval or ratio measure"
+            , correctAnswer = False
+            }
+    in
+    { stem = "Which of these options is a valid response variable for linear regression equation?"
+    , image = Nothing
+    , possibleResponses = [ correctAnswerLocal, distractor1Local, distractor2Local ]
+    }
+
+
+newLinearRegressionResponseVariableQuestion : Array.Array String -> Array.Array String -> Random.Generator Question
+newLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray =
+    -- I'm going to generate three random values and send them to a function
+    Random.map3
+        -- This function takes three random values and returns a value of type Question
+        (fillInLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray)
+        -- These are the things that generate the three random values
+        (Random.int 0 (Array.length rightAnswersArray - 1))
+        (Random.int 0 (Array.length distractorsArray - 1))
+        (Random.int 0 (Array.length distractorsArray - 1))
