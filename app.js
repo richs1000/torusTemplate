@@ -10601,8 +10601,8 @@ var $elm$core$Basics$never = function (_v0) {
 	}
 };
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Main$MsgGotNewQuestion = function (a) {
-	return {$: 'MsgGotNewQuestion', a: a};
+var $author$project$Main$MsgDisplayNewQuestion = function (a) {
+	return {$: 'MsgDisplayNewQuestion', a: a};
 };
 var $elm$core$List$repeatHelp = F3(
 	function (result, n, value) {
@@ -10644,16 +10644,11 @@ var $author$project$Main$createNewModel = F2(
 			debug: true,
 			masterySettings: newMasterySettings,
 			progressBar: $author$project$Main$emptyProgressBar(newMasterySettings.window),
+			userResponse: $elm$core$Maybe$Nothing,
 			windowDimensions: newWindowDimensions
 		};
 	});
 var $author$project$Main$defaultMasterySettings = {threshold: 4, window: 6};
-var $author$project$Main$nominalMeasures = _List_fromArray(
-	['gender', 'marital status', 'ethnicity', 'job title', 'employer', 'brand of wheelchair', 'type of prosthetic (\'passive\', \'body-powered\' or \'myoelectric\')']);
-var $author$project$Main$ordinalMeasures = _List_fromArray(
-	['education level (e.g., \'elementary\', \'high school\', \'college\'...)', 'military rank (e.g., \'private\', \'corporal\', \'sergeant\'...)', 'product quality (on a scale of \'poor\', \'average\', \'good\' or \'excellent\')', 'clothing size (e.g., \'small\', \'medium\', \'large\'...)', 'frequency of occurrence (on a scale of \'never\', \'rarely\', \'sometimes\', \'always\')']);
-var $author$project$Main$distractors = $elm$core$Array$fromList(
-	_Utils_ap($author$project$Main$nominalMeasures, $author$project$Main$ordinalMeasures));
 var $elm$random$Random$Generate = function (a) {
 	return {$: 'Generate', a: a};
 };
@@ -10760,38 +10755,72 @@ var $elm$random$Random$generate = F2(
 			$elm$random$Random$Generate(
 				A2($elm$random$Random$map, tagger, generator)));
 	});
-var $author$project$Main$fillInLinearRegressionResponseVariableQuestion = F5(
-	function (rightAnswersArray, distractorsArray, correctAnswerIndex, distractorIndex1, distractorIndex2) {
-		var distractor2Local = {
-			correctAnswer: false,
-			feedback: 'A response variable for linear regression must be an interval or ratio measure',
-			textPart: A2(
-				$elm$core$Maybe$withDefault,
-				'This was supposed to be an incorrect answer',
-				A2($elm$core$Array$get, distractorIndex2, distractorsArray))
-		};
-		var distractor1Local = {
-			correctAnswer: false,
-			feedback: 'A response variable for linear regression must be an interval or ratio measure',
-			textPart: A2(
-				$elm$core$Maybe$withDefault,
-				'This was supposed to be an incorrect answer',
-				A2($elm$core$Array$get, distractorIndex1, distractorsArray))
-		};
-		var correctAnswerLocal = {
-			correctAnswer: true,
-			feedback: 'You chose the right answer',
-			textPart: A2(
-				$elm$core$Maybe$withDefault,
-				'This was supposed to be the right answer',
-				A2($elm$core$Array$get, correctAnswerIndex, rightAnswersArray))
-		};
-		return {
-			image: $elm$core$Maybe$Nothing,
-			possibleResponses: _List_fromArray(
-				[correctAnswerLocal, distractor1Local, distractor2Local]),
-			stem: 'Which of these options is a valid response variable for linear regression equation?'
-		};
+var $author$project$Main$Question = F3(
+	function (stem, image, possibleResponses) {
+		return {image: image, possibleResponses: possibleResponses, stem: stem};
+	});
+var $elm$random$Random$andThen = F2(
+	function (callback, _v0) {
+		var genA = _v0.a;
+		return $elm$random$Random$Generator(
+			function (seed) {
+				var _v1 = genA(seed);
+				var result = _v1.a;
+				var newSeed = _v1.b;
+				var _v2 = callback(result);
+				var genB = _v2.a;
+				return genB(newSeed);
+			});
+	});
+var $author$project$Main$QuestionResponse = F3(
+	function (correctAnswer, feedback, textPart) {
+		return {correctAnswer: correctAnswer, feedback: feedback, textPart: textPart};
+	});
+var $author$project$Main$nominalMeasures = _List_fromArray(
+	['gender', 'marital status', 'ethnicity', 'job title', 'employer', 'brand of wheelchair', 'type of prosthetic (\'passive\', \'body-powered\' or \'myoelectric\')']);
+var $author$project$Main$ordinalMeasures = _List_fromArray(
+	['education level (e.g., \'elementary\', \'high school\', \'college\'...)', 'military rank (e.g., \'private\', \'corporal\', \'sergeant\'...)', 'product quality (on a scale of \'poor\', \'average\', \'good\' or \'excellent\')', 'clothing size (e.g., \'small\', \'medium\', \'large\'...)', 'frequency of occurrence (on a scale of \'never\', \'rarely\', \'sometimes\', \'always\')']);
+var $author$project$Main$listOfDistractors = function () {
+	var responseFeedback = 'This is not a good choice for the response variable. The response variable in a linear regression equation must be an interval or a ratio.';
+	var correctAnswerFlag = false;
+	var allDistractors = _Utils_ap($author$project$Main$nominalMeasures, $author$project$Main$ordinalMeasures);
+	return A2(
+		$elm$core$List$map,
+		A2($author$project$Main$QuestionResponse, correctAnswerFlag, responseFeedback),
+		allDistractors);
+}();
+var $author$project$Main$intervalMeasures = _List_fromArray(
+	['temperature (in degrees Celsius)', 'Functional Independence Measure (FIM) score (ranges from 18 to 126)', 'Berg Balance Scale (BBS) score (ranges from 0 to 56)', 'Modified Ashworth Scale score (ranges from 0 to 5)', 'Mini-Mental State Exam (MMSE) score (ranges from 0 to 30)', 'Beck Depression Inventory (BDI) score (ranges from 0 to 63)']);
+var $author$project$Main$ratioMeasures = _List_fromArray(
+	['blood pressure', 'weight (in pounds)', 'height (in inches)', 'heart rate (in beats per minute)', 'grip strength (in pounds)', 'age (in years)', 'the number of ADLs a client can complete independently', 'the number of verbal outbursts a child makes during a single class period', 'the number of falls an individual has in a month', 'score on Timed Up and Go (TUG) test (in seconds)']);
+var $author$project$Main$listOfRightAnswers = function () {
+	var responseFeedback = 'That is correct!';
+	var correctAnswerFlag = true;
+	var allRightAnswers = _Utils_ap($author$project$Main$intervalMeasures, $author$project$Main$ratioMeasures);
+	return A2(
+		$elm$core$List$map,
+		A2($author$project$Main$QuestionResponse, correctAnswerFlag, responseFeedback),
+		allRightAnswers);
+}();
+var $elm$random$Random$constant = function (value) {
+	return $elm$random$Random$Generator(
+		function (seed) {
+			return _Utils_Tuple2(value, seed);
+		});
+};
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm_community$random_extra$Random$List$get = F2(
+	function (index, list) {
+		return $elm$core$List$head(
+			A2($elm$core$List$drop, index, list));
 	});
 var $elm$core$Bitwise$xor = _Bitwise_xor;
 var $elm$random$Random$peel = function (_v0) {
@@ -10831,6 +10860,235 @@ var $elm$random$Random$int = F2(
 				}
 			});
 	});
+var $elm$core$List$takeReverse = F3(
+	function (n, list, kept) {
+		takeReverse:
+		while (true) {
+			if (n <= 0) {
+				return kept;
+			} else {
+				if (!list.b) {
+					return kept;
+				} else {
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs,
+						$temp$kept = A2($elm$core$List$cons, x, kept);
+					n = $temp$n;
+					list = $temp$list;
+					kept = $temp$kept;
+					continue takeReverse;
+				}
+			}
+		}
+	});
+var $elm$core$List$takeTailRec = F2(
+	function (n, list) {
+		return $elm$core$List$reverse(
+			A3($elm$core$List$takeReverse, n, list, _List_Nil));
+	});
+var $elm$core$List$takeFast = F3(
+	function (ctr, n, list) {
+		if (n <= 0) {
+			return _List_Nil;
+		} else {
+			var _v0 = _Utils_Tuple2(n, list);
+			_v0$1:
+			while (true) {
+				_v0$5:
+				while (true) {
+					if (!_v0.b.b) {
+						return list;
+					} else {
+						if (_v0.b.b.b) {
+							switch (_v0.a) {
+								case 1:
+									break _v0$1;
+								case 2:
+									var _v2 = _v0.b;
+									var x = _v2.a;
+									var _v3 = _v2.b;
+									var y = _v3.a;
+									return _List_fromArray(
+										[x, y]);
+								case 3:
+									if (_v0.b.b.b.b) {
+										var _v4 = _v0.b;
+										var x = _v4.a;
+										var _v5 = _v4.b;
+										var y = _v5.a;
+										var _v6 = _v5.b;
+										var z = _v6.a;
+										return _List_fromArray(
+											[x, y, z]);
+									} else {
+										break _v0$5;
+									}
+								default:
+									if (_v0.b.b.b.b && _v0.b.b.b.b.b) {
+										var _v7 = _v0.b;
+										var x = _v7.a;
+										var _v8 = _v7.b;
+										var y = _v8.a;
+										var _v9 = _v8.b;
+										var z = _v9.a;
+										var _v10 = _v9.b;
+										var w = _v10.a;
+										var tl = _v10.b;
+										return (ctr > 1000) ? A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A2($elm$core$List$takeTailRec, n - 4, tl))))) : A2(
+											$elm$core$List$cons,
+											x,
+											A2(
+												$elm$core$List$cons,
+												y,
+												A2(
+													$elm$core$List$cons,
+													z,
+													A2(
+														$elm$core$List$cons,
+														w,
+														A3($elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
+									} else {
+										break _v0$5;
+									}
+							}
+						} else {
+							if (_v0.a === 1) {
+								break _v0$1;
+							} else {
+								break _v0$5;
+							}
+						}
+					}
+				}
+				return list;
+			}
+			var _v1 = _v0.b;
+			var x = _v1.a;
+			return _List_fromArray(
+				[x]);
+		}
+	});
+var $elm$core$List$take = F2(
+	function (n, list) {
+		return A3($elm$core$List$takeFast, 0, n, list);
+	});
+var $elm_community$random_extra$Random$List$choose = function (list) {
+	if ($elm$core$List$isEmpty(list)) {
+		return $elm$random$Random$constant(
+			_Utils_Tuple2($elm$core$Maybe$Nothing, list));
+	} else {
+		var lastIndex = $elm$core$List$length(list) - 1;
+		var gen = A2($elm$random$Random$int, 0, lastIndex);
+		var front = function (i) {
+			return A2($elm$core$List$take, i, list);
+		};
+		var back = function (i) {
+			return A2($elm$core$List$drop, i + 1, list);
+		};
+		return A2(
+			$elm$random$Random$map,
+			function (index) {
+				return _Utils_Tuple2(
+					A2($elm_community$random_extra$Random$List$get, index, list),
+					A2(
+						$elm$core$List$append,
+						front(index),
+						back(index)));
+			},
+			gen);
+	}
+};
+var $elm$random$Random$lazy = function (callback) {
+	return $elm$random$Random$Generator(
+		function (seed) {
+			var _v0 = callback(_Utils_Tuple0);
+			var gen = _v0.a;
+			return gen(seed);
+		});
+};
+var $elm_community$random_extra$Random$List$choices = F2(
+	function (count, list) {
+		return (count < 1) ? $elm$random$Random$constant(
+			_Utils_Tuple2(_List_Nil, list)) : A2(
+			$elm$random$Random$andThen,
+			function (_v0) {
+				var choice = _v0.a;
+				var remaining = _v0.b;
+				var genRest = $elm$random$Random$lazy(
+					function (_v3) {
+						return A2($elm_community$random_extra$Random$List$choices, count - 1, remaining);
+					});
+				var addToChoices = F2(
+					function (elem, _v2) {
+						var chosen = _v2.a;
+						var unchosen = _v2.b;
+						return _Utils_Tuple2(
+							A2($elm$core$List$cons, elem, chosen),
+							unchosen);
+					});
+				if (choice.$ === 'Nothing') {
+					return $elm$random$Random$constant(
+						_Utils_Tuple2(_List_Nil, list));
+				} else {
+					var elem = choice.a;
+					return A2(
+						$elm$random$Random$map,
+						addToChoices(elem),
+						genRest);
+				}
+			},
+			$elm_community$random_extra$Random$List$choose(list));
+	});
+var $elm$random$Random$map2 = F3(
+	function (func, _v0, _v1) {
+		var genA = _v0.a;
+		var genB = _v1.a;
+		return $elm$random$Random$Generator(
+			function (seed0) {
+				var _v2 = genA(seed0);
+				var a = _v2.a;
+				var seed1 = _v2.b;
+				var _v3 = genB(seed1);
+				var b = _v3.a;
+				var seed2 = _v3.b;
+				return _Utils_Tuple2(
+					A2(func, a, b),
+					seed2);
+			});
+	});
+var $author$project$Main$newListOfResponses = F3(
+	function (numberOfDistractors, rightAnswersP, wrongAnswersP) {
+		var makeAListOfThree = F2(
+			function (_v0, _v1) {
+				var r = _v0.a;
+				var rs = _v0.b;
+				var d = _v1.a;
+				var ds = _v1.b;
+				return _Utils_ap(r, d);
+			});
+		return A3(
+			$elm$random$Random$map2,
+			makeAListOfThree,
+			A2($elm_community$random_extra$Random$List$choices, 1, rightAnswersP),
+			A2($elm_community$random_extra$Random$List$choices, numberOfDistractors, wrongAnswersP));
+	});
+var $elm$random$Random$maxInt = 2147483647;
+var $elm$random$Random$minInt = -2147483648;
+var $elm_community$random_extra$Random$List$anyInt = A2($elm$random$Random$int, $elm$random$Random$minInt, $elm$random$Random$maxInt);
 var $elm$random$Random$map3 = F4(
 	function (func, _v0, _v1, _v2) {
 		var genA = _v0.a;
@@ -10852,40 +11110,70 @@ var $elm$random$Random$map3 = F4(
 					seed3);
 			});
 	});
-var $author$project$Main$newLinearRegressionResponseVariableQuestion = F2(
-	function (rightAnswersArray, distractorsArray) {
-		return A4(
-			$elm$random$Random$map3,
-			A2($author$project$Main$fillInLinearRegressionResponseVariableQuestion, rightAnswersArray, distractorsArray),
-			A2(
-				$elm$random$Random$int,
-				0,
-				$elm$core$Array$length(rightAnswersArray) - 1),
-			A2(
-				$elm$random$Random$int,
-				0,
-				$elm$core$Array$length(distractorsArray) - 1),
-			A2(
-				$elm$random$Random$int,
-				0,
-				$elm$core$Array$length(distractorsArray) - 1));
+var $elm$core$Bitwise$or = _Bitwise_or;
+var $elm$random$Random$independentSeed = $elm$random$Random$Generator(
+	function (seed0) {
+		var makeIndependentSeed = F3(
+			function (state, b, c) {
+				return $elm$random$Random$next(
+					A2($elm$random$Random$Seed, state, (1 | (b ^ c)) >>> 0));
+			});
+		var gen = A2($elm$random$Random$int, 0, 4294967295);
+		return A2(
+			$elm$random$Random$step,
+			A4($elm$random$Random$map3, makeIndependentSeed, gen, gen, gen),
+			seed0);
 	});
-var $author$project$Main$intervalMeasures = _List_fromArray(
-	['temperature (in degrees Celsius)', 'Functional Independence Measure (FIM) score (ranges from 18 to 126)', 'Berg Balance Scale (BBS) score (ranges from 0 to 56)', 'Modified Ashworth Scale score (ranges from 0 to 5)', 'Mini-Mental State Exam (MMSE) score (ranges from 0 to 30)', 'Beck Depression Inventory (BDI) score (ranges from 0 to 63)']);
-var $author$project$Main$ratioMeasures = _List_fromArray(
-	['blood pressure', 'weight (in pounds)', 'height (in inches)', 'heart rate (in beats per minute)', 'grip strength (in pounds)', 'age (in years)', 'the number of ADLs a client can complete independently', 'the number of verbal outbursts a child makes during a single class period', 'the number of falls an individual has in a month', 'score on Timed Up and Go (TUG) test (in seconds)']);
-var $author$project$Main$rightAnswers = $elm$core$Array$fromList(
-	_Utils_ap($author$project$Main$intervalMeasures, $author$project$Main$ratioMeasures));
+var $elm$core$List$sortBy = _List_sortBy;
+var $elm_community$random_extra$Random$List$shuffle = function (list) {
+	return A2(
+		$elm$random$Random$map,
+		function (independentSeed) {
+			return A2(
+				$elm$core$List$map,
+				$elm$core$Tuple$first,
+				A2(
+					$elm$core$List$sortBy,
+					$elm$core$Tuple$second,
+					A3(
+						$elm$core$List$foldl,
+						F2(
+							function (item, _v0) {
+								var acc = _v0.a;
+								var seed = _v0.b;
+								var _v1 = A2($elm$random$Random$step, $elm_community$random_extra$Random$List$anyInt, seed);
+								var tag = _v1.a;
+								var nextSeed = _v1.b;
+								return _Utils_Tuple2(
+									A2(
+										$elm$core$List$cons,
+										_Utils_Tuple2(item, tag),
+										acc),
+									nextSeed);
+							}),
+						_Utils_Tuple2(_List_Nil, independentSeed),
+						list).a));
+		},
+		$elm$random$Random$independentSeed);
+};
+var $author$project$Main$newQuestion = function () {
+	var newStem = 'Which of these options is a valid response variable for linear regression equation?';
+	var newImage = $elm$core$Maybe$Nothing;
+	return A2(
+		$elm$random$Random$map,
+		A2($author$project$Main$Question, newStem, newImage),
+		A2(
+			$elm$random$Random$andThen,
+			$elm_community$random_extra$Random$List$shuffle,
+			A3($author$project$Main$newListOfResponses, 2, $author$project$Main$listOfRightAnswers, $author$project$Main$listOfDistractors)));
+}();
 var $author$project$Main$initializeModel = function (windowDimensions) {
 	return _Utils_Tuple2(
 		A2($author$project$Main$createNewModel, windowDimensions, $author$project$Main$defaultMasterySettings),
-		A2(
-			$elm$random$Random$generate,
-			$author$project$Main$MsgGotNewQuestion,
-			A2($author$project$Main$newLinearRegressionResponseVariableQuestion, $author$project$Main$rightAnswers, $author$project$Main$distractors)));
+		A2($elm$random$Random$generate, $author$project$Main$MsgDisplayNewQuestion, $author$project$Main$newQuestion));
 };
-var $author$project$Main$MsgGetFromTorus = function (a) {
-	return {$: 'MsgGetFromTorus', a: a};
+var $author$project$Main$MsgUpdateMasterySettings = function (a) {
+	return {$: 'MsgUpdateMasterySettings', a: a};
 };
 var $author$project$Main$MsgWindowSizeChanged = F2(
 	function (a, b) {
@@ -11097,138 +11385,10 @@ var $author$project$Main$mySubscriptions = function (_v0) {
 	return $elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
-				$author$project$Main$getFromTorus($author$project$Main$MsgGetFromTorus),
+				$author$project$Main$getFromTorus($author$project$Main$MsgUpdateMasterySettings),
 				$elm$browser$Browser$Events$onResize($author$project$Main$MsgWindowSizeChanged)
 			]));
 };
-var $author$project$Main$RightAnswer = {$: 'RightAnswer'};
-var $author$project$Main$WrongAnswer = {$: 'WrongAnswer'};
-var $elm$core$List$takeReverse = F3(
-	function (n, list, kept) {
-		takeReverse:
-		while (true) {
-			if (n <= 0) {
-				return kept;
-			} else {
-				if (!list.b) {
-					return kept;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs,
-						$temp$kept = A2($elm$core$List$cons, x, kept);
-					n = $temp$n;
-					list = $temp$list;
-					kept = $temp$kept;
-					continue takeReverse;
-				}
-			}
-		}
-	});
-var $elm$core$List$takeTailRec = F2(
-	function (n, list) {
-		return $elm$core$List$reverse(
-			A3($elm$core$List$takeReverse, n, list, _List_Nil));
-	});
-var $elm$core$List$takeFast = F3(
-	function (ctr, n, list) {
-		if (n <= 0) {
-			return _List_Nil;
-		} else {
-			var _v0 = _Utils_Tuple2(n, list);
-			_v0$1:
-			while (true) {
-				_v0$5:
-				while (true) {
-					if (!_v0.b.b) {
-						return list;
-					} else {
-						if (_v0.b.b.b) {
-							switch (_v0.a) {
-								case 1:
-									break _v0$1;
-								case 2:
-									var _v2 = _v0.b;
-									var x = _v2.a;
-									var _v3 = _v2.b;
-									var y = _v3.a;
-									return _List_fromArray(
-										[x, y]);
-								case 3:
-									if (_v0.b.b.b.b) {
-										var _v4 = _v0.b;
-										var x = _v4.a;
-										var _v5 = _v4.b;
-										var y = _v5.a;
-										var _v6 = _v5.b;
-										var z = _v6.a;
-										return _List_fromArray(
-											[x, y, z]);
-									} else {
-										break _v0$5;
-									}
-								default:
-									if (_v0.b.b.b.b && _v0.b.b.b.b.b) {
-										var _v7 = _v0.b;
-										var x = _v7.a;
-										var _v8 = _v7.b;
-										var y = _v8.a;
-										var _v9 = _v8.b;
-										var z = _v9.a;
-										var _v10 = _v9.b;
-										var w = _v10.a;
-										var tl = _v10.b;
-										return (ctr > 1000) ? A2(
-											$elm$core$List$cons,
-											x,
-											A2(
-												$elm$core$List$cons,
-												y,
-												A2(
-													$elm$core$List$cons,
-													z,
-													A2(
-														$elm$core$List$cons,
-														w,
-														A2($elm$core$List$takeTailRec, n - 4, tl))))) : A2(
-											$elm$core$List$cons,
-											x,
-											A2(
-												$elm$core$List$cons,
-												y,
-												A2(
-													$elm$core$List$cons,
-													z,
-													A2(
-														$elm$core$List$cons,
-														w,
-														A3($elm$core$List$takeFast, ctr + 1, n - 4, tl)))));
-									} else {
-										break _v0$5;
-									}
-							}
-						} else {
-							if (_v0.a === 1) {
-								break _v0$1;
-							} else {
-								break _v0$5;
-							}
-						}
-					}
-				}
-				return list;
-			}
-			var _v1 = _v0.b;
-			var x = _v1.a;
-			return _List_fromArray(
-				[x]);
-		}
-	});
-var $elm$core$List$take = F2(
-	function (n, list) {
-		return A3($elm$core$List$takeFast, 0, n, list);
-	});
 var $author$project$Main$addToProgressBar = F3(
 	function (masterySettings, progressBar, progress) {
 		return A2(
@@ -11241,11 +11401,11 @@ var $author$project$Main$sendToTorus = _Platform_outgoingPort('sendToTorus', $el
 var $author$project$Main$updateModel = F2(
 	function (msg, model) {
 		switch (msg.$) {
-			case 'MsgSendToTorus':
+			case 'MsgReturnToTorus':
 				return _Utils_Tuple2(
 					model,
 					$author$project$Main$sendToTorus(true));
-			case 'MsgGetFromTorus':
+			case 'MsgUpdateMasterySettings':
 				var settings = msg.a;
 				var newMasterySettings = {threshold: settings.threshold, window: settings.window};
 				var currentWindowDimensions = model.windowDimensions;
@@ -11262,33 +11422,26 @@ var $author$project$Main$updateModel = F2(
 						{windowDimensions: newWindowDimensions}),
 					$elm$core$Platform$Cmd$none);
 			case 'MsgGetNewQuestion':
-				var _v1 = msg.a;
 				return _Utils_Tuple2(
 					model,
-					A2(
-						$elm$random$Random$generate,
-						$author$project$Main$MsgGotNewQuestion,
-						A2($author$project$Main$newLinearRegressionResponseVariableQuestion, $author$project$Main$rightAnswers, $author$project$Main$distractors)));
-			case 'MsgGotNewQuestion':
-				var newQuestion = msg.a;
+					A2($elm$random$Random$generate, $author$project$Main$MsgDisplayNewQuestion, $author$project$Main$newQuestion));
+			case 'MsgDisplayNewQuestion':
+				var newRandomQuestion = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{currentQuestion: newQuestion}),
+						{currentQuestion: newRandomQuestion, userResponse: $elm$core$Maybe$Nothing}),
 					$elm$core$Platform$Cmd$none);
 			default:
-				var userResponse = msg.a;
-				var rightOrWrong = userResponse.correctAnswer ? $author$project$Main$RightAnswer : $author$project$Main$WrongAnswer;
+				var newUserResponse = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{
-							progressBar: A3($author$project$Main$addToProgressBar, model.masterySettings, model.progressBar, rightOrWrong)
+							progressBar: A3($author$project$Main$addToProgressBar, model.masterySettings, model.progressBar, newUserResponse.correctAnswer),
+							userResponse: $elm$core$Maybe$Just(newUserResponse)
 						}),
-					A2(
-						$elm$random$Random$generate,
-						$author$project$Main$MsgGotNewQuestion,
-						A2($author$project$Main$newLinearRegressionResponseVariableQuestion, $author$project$Main$rightAnswers, $author$project$Main$distractors)));
+					$elm$core$Platform$Cmd$none);
 		}
 	});
 var $mdgriffith$elm_ui$Internal$Model$Unkeyed = function (a) {
@@ -15243,7 +15396,6 @@ var $mdgriffith$elm_ui$Internal$Flag$Field = F2(
 	function (a, b) {
 		return {$: 'Field', a: a, b: b};
 	});
-var $elm$core$Bitwise$or = _Bitwise_or;
 var $mdgriffith$elm_ui$Internal$Flag$add = F2(
 	function (myFlag, _v0) {
 		var one = _v0.a;
@@ -17078,166 +17230,8 @@ var $author$project$Main$viewDebugPanel = function (model) {
 					]))
 			])) : $mdgriffith$elm_ui$Element$none;
 };
-var $author$project$Main$viewInstructionsPanel = function (masterySettings) {
-	var instructions = 'You need to answer ' + ($elm$core$String$fromInt(masterySettings.threshold) + (' out of your last ' + ($elm$core$String$fromInt(masterySettings.window) + ' questions in order to advance.')));
-	return A2(
-		$mdgriffith$elm_ui$Element$column,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$fillPortion(1)),
-				$mdgriffith$elm_ui$Element$padding(20)
-			]),
-		_List_fromArray(
-			[
-				A2(
-				$mdgriffith$elm_ui$Element$paragraph,
-				_List_Nil,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$text(instructions)
-					]))
-			]));
-};
-var $mdgriffith$elm_ui$Element$Background$color = function (clr) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$bgColor,
-		A3(
-			$mdgriffith$elm_ui$Internal$Model$Colored,
-			'bg-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(clr),
-			'background-color',
-			clr));
-};
-var $mdgriffith$elm_ui$Internal$Flag$borderColor = $mdgriffith$elm_ui$Internal$Flag$flag(28);
-var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$borderColor,
-		A3(
-			$mdgriffith$elm_ui$Internal$Model$Colored,
-			'bc-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(clr),
-			'border-color',
-			clr));
-};
-var $mdgriffith$elm_ui$Element$el = F2(
-	function (attrs, child) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asEl,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-					attrs)),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
-				_List_fromArray(
-					[child])));
-	});
-var $mdgriffith$elm_ui$Element$rgb = F3(
-	function (r, g, b) {
-		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, r, g, b, 1);
-	});
-var $mdgriffith$elm_ui$Element$rgb255 = F3(
-	function (red, green, blue) {
-		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, 1);
-	});
-var $mdgriffith$elm_ui$Internal$Flag$borderRound = $mdgriffith$elm_ui$Internal$Flag$flag(17);
-var $mdgriffith$elm_ui$Element$Border$rounded = function (radius) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$borderRound,
-		A3(
-			$mdgriffith$elm_ui$Internal$Model$Single,
-			'br-' + $elm$core$String$fromInt(radius),
-			'border-radius',
-			$elm$core$String$fromInt(radius) + 'px'));
-};
-var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
-var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
-var $mdgriffith$elm_ui$Element$row = F2(
-	function (attrs, children) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asRow,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentCenterY)),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-						attrs))),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
-	});
-var $mdgriffith$elm_ui$Internal$Model$BorderWidth = F5(
-	function (a, b, c, d, e) {
-		return {$: 'BorderWidth', a: a, b: b, c: c, d: d, e: e};
-	});
-var $mdgriffith$elm_ui$Element$Border$width = function (v) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$borderWidth,
-		A5(
-			$mdgriffith$elm_ui$Internal$Model$BorderWidth,
-			'b-' + $elm$core$String$fromInt(v),
-			v,
-			v,
-			v,
-			v));
-};
-var $author$project$Main$viewProgressBar = function (progressBar) {
-	var drawProgressBox = function (p) {
-		var fillColor = function () {
-			if (p.$ === 'Just') {
-				if (p.a.$ === 'RightAnswer') {
-					var _v1 = p.a;
-					return A3($mdgriffith$elm_ui$Element$rgb255, 0, 255, 0);
-				} else {
-					var _v2 = p.a;
-					return A3($mdgriffith$elm_ui$Element$rgb255, 255, 0, 0);
-				}
-			} else {
-				return A3($mdgriffith$elm_ui$Element$rgb, 255, 255, 255);
-			}
-		}();
-		return A2(
-			$mdgriffith$elm_ui$Element$el,
-			_List_fromArray(
-				[
-					$mdgriffith$elm_ui$Element$Background$color(fillColor),
-					$mdgriffith$elm_ui$Element$padding(10),
-					$mdgriffith$elm_ui$Element$Border$rounded(6),
-					$mdgriffith$elm_ui$Element$Border$width(3),
-					$mdgriffith$elm_ui$Element$Border$color(
-					A3($mdgriffith$elm_ui$Element$rgb255, 0, 0, 0)),
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$width(
-					$mdgriffith$elm_ui$Element$fillPortion(1))
-				]),
-			$mdgriffith$elm_ui$Element$none);
-	};
-	return A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$fillPortion(1)),
-				$mdgriffith$elm_ui$Element$padding(20)
-			]),
-		A2($elm$core$List$map, drawProgressBox, progressBar));
-};
-var $author$project$Main$MsgUserResponded = function (a) {
-	return {$: 'MsgUserResponded', a: a};
-};
+var $author$project$Main$MsgGetNewQuestion = {$: 'MsgGetNewQuestion'};
+var $author$project$Main$MsgReturnToTorus = {$: 'MsgReturnToTorus'};
 var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
 var $elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {
@@ -17371,9 +17365,104 @@ var $mdgriffith$elm_ui$Internal$Model$AlignX = function (a) {
 };
 var $mdgriffith$elm_ui$Internal$Model$CenterX = {$: 'CenterX'};
 var $mdgriffith$elm_ui$Element$centerX = $mdgriffith$elm_ui$Internal$Model$AlignX($mdgriffith$elm_ui$Internal$Model$CenterX);
+var $mdgriffith$elm_ui$Internal$Flag$borderColor = $mdgriffith$elm_ui$Internal$Flag$flag(28);
+var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderColor,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Colored,
+			'bc-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(clr),
+			'border-color',
+			clr));
+};
+var $mdgriffith$elm_ui$Element$el = F2(
+	function (attrs, child) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asEl,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+					attrs)),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
+				_List_fromArray(
+					[child])));
+	});
 var $mdgriffith$elm_ui$Element$explain = function (_v0) {
 	return $mdgriffith$elm_ui$Internal$Model$htmlClass('explain');
 };
+var $elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _v0) {
+				var trues = _v0.a;
+				var falses = _v0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2($elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2($elm$core$List$cons, x, falses));
+			});
+		return A3(
+			$elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var $author$project$Main$masteryThresholdReached = function (model) {
+	var _v0 = A2(
+		$elm$core$List$partition,
+		function (rOrW) {
+			return _Utils_eq(
+				rOrW,
+				$elm$core$Maybe$Just(true));
+		},
+		model.progressBar);
+	var rightAnswers = _v0.a;
+	return _Utils_cmp(
+		$elm$core$List$length(rightAnswers),
+		model.masterySettings.threshold) > -1;
+};
+var $mdgriffith$elm_ui$Element$rgb255 = F3(
+	function (red, green, blue) {
+		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, 1);
+	});
+var $mdgriffith$elm_ui$Internal$Flag$borderRound = $mdgriffith$elm_ui$Internal$Flag$flag(17);
+var $mdgriffith$elm_ui$Element$Border$rounded = function (radius) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderRound,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Single,
+			'br-' + $elm$core$String$fromInt(radius),
+			'border-radius',
+			$elm$core$String$fromInt(radius) + 'px'));
+};
+var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
+var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
+var $mdgriffith$elm_ui$Element$row = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asRow,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentCenterY)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
 var $mdgriffith$elm_ui$Internal$Model$VariantActive = function (a) {
 	return {$: 'VariantActive', a: a};
 };
@@ -17400,6 +17489,181 @@ var $mdgriffith$elm_ui$Element$Font$variant = function (_var) {
 					'font-feature-settings',
 					'\"' + (name + ('\" ' + $elm$core$String$fromInt(index)))));
 	}
+};
+var $mdgriffith$elm_ui$Internal$Model$BorderWidth = F5(
+	function (a, b, c, d, e) {
+		return {$: 'BorderWidth', a: a, b: b, c: c, d: d, e: e};
+	});
+var $mdgriffith$elm_ui$Element$Border$width = function (v) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$borderWidth,
+		A5(
+			$mdgriffith$elm_ui$Internal$Model$BorderWidth,
+			'b-' + $elm$core$String$fromInt(v),
+			v,
+			v,
+			v,
+			v));
+};
+var $author$project$Main$viewFeedback = function (model) {
+	var _v0 = model.userResponse;
+	if (_v0.$ === 'Nothing') {
+		return $mdgriffith$elm_ui$Element$none;
+	} else {
+		var userResponse = _v0.a;
+		var _v1 = $author$project$Main$masteryThresholdReached(model) ? _Utils_Tuple2($author$project$Main$MsgReturnToTorus, 'Return to Lesson') : _Utils_Tuple2($author$project$Main$MsgGetNewQuestion, 'Next Question');
+		var buttonMessage = _v1.a;
+		var buttonLabel = _v1.b;
+		var nextBtn = A2(
+			$mdgriffith$elm_ui$Element$Input$button,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$padding(10),
+					$mdgriffith$elm_ui$Element$Border$width(3),
+					$mdgriffith$elm_ui$Element$Border$rounded(6),
+					$mdgriffith$elm_ui$Element$Border$color(
+					A3($mdgriffith$elm_ui$Element$rgb255, 0, 0, 0)),
+					$mdgriffith$elm_ui$Element$Font$variant($mdgriffith$elm_ui$Element$Font$smallCaps),
+					$mdgriffith$elm_ui$Element$width(
+					$mdgriffith$elm_ui$Element$fillPortion(1))
+				]),
+			{
+				label: A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[$mdgriffith$elm_ui$Element$centerX]),
+					$mdgriffith$elm_ui$Element$text(buttonLabel)),
+				onPress: $elm$core$Maybe$Just(buttonMessage)
+			});
+		return A2(
+			$mdgriffith$elm_ui$Element$column,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$height(
+					$mdgriffith$elm_ui$Element$fillPortion(3)),
+					$mdgriffith$elm_ui$Element$padding(20),
+					$mdgriffith$elm_ui$Element$explain(
+					_Debug_todo(
+						'Main',
+						{
+							start: {line: 590, column: 35},
+							end: {line: 590, column: 45}
+						}))
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					_List_fromArray(
+						[
+							A2(
+							$mdgriffith$elm_ui$Element$column,
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$width(
+									$mdgriffith$elm_ui$Element$fillPortion(1)),
+									$mdgriffith$elm_ui$Element$padding(10)
+								]),
+							_List_fromArray(
+								[
+									$mdgriffith$elm_ui$Element$text(userResponse.feedback)
+								]))
+						])),
+					A2(
+					$mdgriffith$elm_ui$Element$row,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+						]),
+					_List_fromArray(
+						[nextBtn]))
+				]));
+	}
+};
+var $author$project$Main$viewInstructionsPanel = function (masterySettings) {
+	var instructions = 'You need to answer ' + ($elm$core$String$fromInt(masterySettings.threshold) + (' out of your last ' + ($elm$core$String$fromInt(masterySettings.window) + ' questions in order to advance.')));
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$height(
+				$mdgriffith$elm_ui$Element$fillPortion(1)),
+				$mdgriffith$elm_ui$Element$padding(20)
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$paragraph,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$text(instructions)
+					]))
+			]));
+};
+var $mdgriffith$elm_ui$Element$Background$color = function (clr) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$bgColor,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Colored,
+			'bg-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(clr),
+			'background-color',
+			clr));
+};
+var $mdgriffith$elm_ui$Element$rgb = F3(
+	function (r, g, b) {
+		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, r, g, b, 1);
+	});
+var $author$project$Main$viewProgressBar = function (progressBar) {
+	var drawProgressBox = function (p) {
+		var fillColor = function () {
+			if (p.$ === 'Just') {
+				if (p.a) {
+					return A3($mdgriffith$elm_ui$Element$rgb255, 0, 255, 0);
+				} else {
+					return A3($mdgriffith$elm_ui$Element$rgb255, 255, 0, 0);
+				}
+			} else {
+				return A3($mdgriffith$elm_ui$Element$rgb, 255, 255, 255);
+			}
+		}();
+		return A2(
+			$mdgriffith$elm_ui$Element$el,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$Background$color(fillColor),
+					$mdgriffith$elm_ui$Element$padding(10),
+					$mdgriffith$elm_ui$Element$Border$rounded(6),
+					$mdgriffith$elm_ui$Element$Border$width(3),
+					$mdgriffith$elm_ui$Element$Border$color(
+					A3($mdgriffith$elm_ui$Element$rgb255, 0, 0, 0)),
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+					$mdgriffith$elm_ui$Element$width(
+					$mdgriffith$elm_ui$Element$fillPortion(1))
+				]),
+			$mdgriffith$elm_ui$Element$none);
+	};
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$height(
+				$mdgriffith$elm_ui$Element$fillPortion(1)),
+				$mdgriffith$elm_ui$Element$padding(20)
+			]),
+		A2($elm$core$List$map, drawProgressBox, progressBar));
+};
+var $author$project$Main$MsgUserResponded = function (a) {
+	return {$: 'MsgUserResponded', a: a};
 };
 var $mdgriffith$elm_ui$Internal$Model$Px = function (a) {
 	return {$: 'Px', a: a};
@@ -17429,8 +17693,11 @@ var $author$project$Main$viewQuestionImage = function (questionImage) {
 				$mdgriffith$elm_ui$Element$none)
 			]));
 };
-var $author$project$Main$viewQuestion = function (question) {
+var $author$project$Main$viewQuestion = function (model) {
 	var drawButton = function (btn) {
+		var btnResponse = _Utils_eq(model.userResponse, $elm$core$Maybe$Nothing) ? $elm$core$Maybe$Just(
+			$author$project$Main$MsgUserResponded(btn)) : $elm$core$Maybe$Nothing;
+		var btnBackgroundColor = _Utils_eq(model.userResponse, $elm$core$Maybe$Nothing) ? A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255) : (btn.correctAnswer ? A3($mdgriffith$elm_ui$Element$rgb, 0, 200, 0) : A3($mdgriffith$elm_ui$Element$rgb255, 200, 0, 0));
 		return A2(
 			$mdgriffith$elm_ui$Element$Input$button,
 			_List_fromArray(
@@ -17442,7 +17709,8 @@ var $author$project$Main$viewQuestion = function (question) {
 					A3($mdgriffith$elm_ui$Element$rgb255, 0, 0, 0)),
 					$mdgriffith$elm_ui$Element$Font$variant($mdgriffith$elm_ui$Element$Font$smallCaps),
 					$mdgriffith$elm_ui$Element$width(
-					$mdgriffith$elm_ui$Element$fillPortion(1))
+					$mdgriffith$elm_ui$Element$fillPortion(1)),
+					$mdgriffith$elm_ui$Element$Background$color(btnBackgroundColor)
 				]),
 			{
 				label: A2(
@@ -17450,8 +17718,7 @@ var $author$project$Main$viewQuestion = function (question) {
 					_List_fromArray(
 						[$mdgriffith$elm_ui$Element$centerX]),
 					$mdgriffith$elm_ui$Element$text(btn.textPart)),
-				onPress: $elm$core$Maybe$Just(
-					$author$project$Main$MsgUserResponded(btn))
+				onPress: btnResponse
 			});
 	};
 	return A2(
@@ -17466,8 +17733,8 @@ var $author$project$Main$viewQuestion = function (question) {
 				_Debug_todo(
 					'Main',
 					{
-						start: {line: 276, column: 27},
-						end: {line: 276, column: 37}
+						start: {line: 336, column: 27},
+						end: {line: 336, column: 37}
 					}))
 			]),
 		_List_fromArray(
@@ -17490,9 +17757,9 @@ var $author$project$Main$viewQuestion = function (question) {
 							]),
 						_List_fromArray(
 							[
-								$mdgriffith$elm_ui$Element$text(question.stem)
+								$mdgriffith$elm_ui$Element$text(model.currentQuestion.stem)
 							])),
-						$author$project$Main$viewQuestionImage(question.image)
+						$author$project$Main$viewQuestionImage(model.currentQuestion.image)
 					])),
 				A2(
 				$mdgriffith$elm_ui$Element$row,
@@ -17500,7 +17767,7 @@ var $author$project$Main$viewQuestion = function (question) {
 					[
 						$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
 					]),
-				A2($elm$core$List$map, drawButton, question.possibleResponses))
+				A2($elm$core$List$map, drawButton, model.currentQuestion.possibleResponses))
 			]));
 };
 var $author$project$Main$viewModel = function (model) {
@@ -17520,8 +17787,9 @@ var $author$project$Main$viewModel = function (model) {
 			_List_fromArray(
 				[
 					$author$project$Main$viewInstructionsPanel(model.masterySettings),
-					$author$project$Main$viewQuestion(model.currentQuestion),
 					$author$project$Main$viewProgressBar(model.progressBar),
+					$author$project$Main$viewQuestion(model),
+					$author$project$Main$viewFeedback(model),
 					$author$project$Main$viewDebugPanel(model)
 				])));
 };
@@ -17539,4 +17807,4 @@ _Platform_export({'Main':{'init':$author$project$Main$main(
 				},
 				A2($elm$json$Json$Decode$field, 'winHeight', $elm$json$Json$Decode$int));
 		},
-		A2($elm$json$Json$Decode$field, 'winWidth', $elm$json$Json$Decode$int)))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{"Main.MasterySettings":{"args":[],"type":"{ threshold : Basics.Int, window : Basics.Int }"},"Main.Question":{"args":[],"type":"{ stem : String.String, possibleResponses : List.List Main.QuestionResponse, image : Maybe.Maybe Main.QuestionImage }"},"Main.QuestionResponse":{"args":[],"type":"{ textPart : String.String, feedback : String.String, correctAnswer : Basics.Bool }"}},"unions":{"Main.Msg":{"args":[],"tags":{"MsgSendToTorus":[],"MsgGetFromTorus":["Main.MasterySettings"],"MsgWindowSizeChanged":["Basics.Int","Basics.Int"],"MsgGetNewQuestion":["Main.QuestionType"],"MsgGotNewQuestion":["Main.Question"],"MsgUserResponded":["Main.QuestionResponse"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Main.QuestionImage":{"args":[],"tags":{"ImgDummy":[]}},"Main.QuestionType":{"args":[],"tags":{"LinearRegressionResponseVariable":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));
+		A2($elm$json$Json$Decode$field, 'winWidth', $elm$json$Json$Decode$int)))({"versions":{"elm":"0.19.1"},"types":{"message":"Main.Msg","aliases":{"Main.MasterySettings":{"args":[],"type":"{ threshold : Basics.Int, window : Basics.Int }"},"Main.Question":{"args":[],"type":"{ stem : String.String, image : Maybe.Maybe Main.QuestionImage, possibleResponses : List.List Main.QuestionResponse }"},"Main.QuestionResponse":{"args":[],"type":"{ correctAnswer : Basics.Bool, feedback : String.String, textPart : String.String }"}},"unions":{"Main.Msg":{"args":[],"tags":{"MsgReturnToTorus":[],"MsgUpdateMasterySettings":["Main.MasterySettings"],"MsgWindowSizeChanged":["Basics.Int","Basics.Int"],"MsgGetNewQuestion":[],"MsgDisplayNewQuestion":["Main.Question"],"MsgUserResponded":["Main.QuestionResponse"]}},"Basics.Bool":{"args":[],"tags":{"True":[],"False":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}},"List.List":{"args":["a"],"tags":{}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"Main.QuestionImage":{"args":[],"tags":{"ImgDummy":[]}},"String.String":{"args":[],"tags":{"String":[]}}}}})}});}(this));

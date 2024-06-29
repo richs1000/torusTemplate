@@ -4,6 +4,7 @@ elm install mdgriffith/elm-ui
 elm install terezka/elm-charts
 elm install elm/svg
 elm install elm/random
+elm install elm-community/random-extra
 
 elm make src/Main.elm --output=app.js --debug
 
@@ -16,7 +17,6 @@ To Do:
 
 port module Main exposing (..)
 
-import Array
 import Browser
 import Browser.Events
 import Element
@@ -26,6 +26,7 @@ import Element.Font
 import Element.Input
 import Html
 import Random
+import Random.List
 
 
 main : Program WindowDimensions Model Msg
@@ -60,7 +61,7 @@ mySubscriptions : Model -> Sub Msg
 mySubscriptions _ =
     Sub.batch
         [ -- Received mastery settings (threshold and window) from Torus
-          getFromTorus MsgGetFromTorus
+          getFromTorus MsgUpdateMasterySettings
 
         -- Update the model when the browser window gets resized
         , Browser.Events.onResize MsgWindowSizeChanged
@@ -121,13 +122,8 @@ Each item in the progress bar can have three possible states:
 --}
 
 
-type RightOrWrong
-    = RightAnswer -- user chose the correct answer
-    | WrongAnswer -- user chose the wrong answer
-
-
 type alias ProgressBar =
-    List (Maybe RightOrWrong)
+    List (Maybe Bool)
 
 
 emptyProgressBar : Int -> ProgressBar
@@ -135,12 +131,33 @@ emptyProgressBar masteryWindow =
     List.repeat masteryWindow Nothing
 
 
-addToProgressBar : MasterySettings -> ProgressBar -> RightOrWrong -> ProgressBar
+addToProgressBar : MasterySettings -> ProgressBar -> Bool -> ProgressBar
 addToProgressBar masterySettings progressBar progress =
     -- Add the latest progress (right or wrong) to the front of...
     Just progress
         -- the current progress bar with the last item removed
         :: List.take (masterySettings.window - 1) progressBar
+
+
+updateProgressBar : Model -> Model
+updateProgressBar model =
+    let
+        newProgressBar : ProgressBar
+        newProgressBar =
+            case model.userResponse of
+                -- We don't have any response from the user, yet, so don't change
+                -- the progress bar at all
+                Nothing ->
+                    model.progressBar
+
+                -- We did get a response from the user, it's either right or wrong
+                Just actualResponse ->
+                    -- Add the latest progress (right or wrong) to the front of...
+                    Just actualResponse.correctAnswer
+                        -- the current progress bar with the last item removed
+                        :: List.take (model.masterySettings.window - 1) model.progressBar
+    in
+    { model | progressBar = newProgressBar }
 
 
 viewProgressBar : ProgressBar -> Element.Element Msg
@@ -151,10 +168,10 @@ viewProgressBar progressBar =
             let
                 fillColor =
                     case p of
-                        Just RightAnswer ->
+                        Just True ->
                             Element.rgb255 0 255 0
 
-                        Just WrongAnswer ->
+                        Just False ->
                             Element.rgb255 255 0 0
 
                         Nothing ->
@@ -179,6 +196,17 @@ viewProgressBar progressBar =
         (List.map drawProgressBox progressBar)
 
 
+masteryThresholdReached : Model -> Bool
+masteryThresholdReached model =
+    let
+        ( rightAnswers, _ ) =
+            -- split the progress bar into two lists: the right answers and everything else (wrong and not yet)
+            List.partition (\rOrW -> rOrW == Just True) model.progressBar
+    in
+    -- has the number of right answers reached the threshold?
+    List.length rightAnswers >= model.masterySettings.threshold
+
+
 
 {--
 A multiple choice question has three parts: 
@@ -194,9 +222,9 @@ A response has three parts:
 
 
 type alias QuestionResponse =
-    { textPart : String -- What gets displayed on the button for the user to choose
+    { correctAnswer : Bool -- True when this is the right answer
     , feedback : String -- The feedback associated with this answer
-    , correctAnswer : Bool -- True when this is the right answer
+    , textPart : String -- What gets displayed on the button for the user to choose
     }
 
 
@@ -242,8 +270,8 @@ type QuestionImage
 
 type alias Question =
     { stem : String
-    , possibleResponses : List QuestionResponse
     , image : Maybe QuestionImage
+    , possibleResponses : List QuestionResponse
     }
 
 
@@ -255,12 +283,39 @@ emptyQuestion =
     }
 
 
-viewQuestion : Question -> Element.Element Msg
-viewQuestion question =
+viewQuestion : Model -> Element.Element Msg
+viewQuestion model =
     let
         -- drawButton is used to add one button to the panel for each possible answer
         -- presented to the user
+        -- The buttons are only active if the user has not selected a response
+        -- Once the user chooses an answer, the buttons deactivate
         drawButton btn =
+            let
+                btnResponse =
+                    if model.userResponse == Nothing then
+                        -- If the user has not chosen a button, yet, then the buttons
+                        -- are active
+                        Just (MsgUserResponded btn)
+
+                    else
+                        -- otherwise, buttons are all deactivated
+                        Nothing
+
+                btnBackgroundColor =
+                    -- I want to set the button color based on whether or not it's the right answer
+                    if model.userResponse == Nothing then
+                        -- If the user hasn't chosen a button, then the button is white
+                        Element.rgb255 255 255 255
+
+                    else if btn.correctAnswer then
+                        -- If this was the correct answer, color it green
+                        Element.rgb 0 200 0
+
+                    else
+                        -- If this wasn't the correct answer, then color it red
+                        Element.rgb255 200 0 0
+            in
             Element.Input.button
                 [ Element.padding 10
                 , Element.Border.width 3
@@ -268,8 +323,9 @@ viewQuestion question =
                 , Element.Border.color (Element.rgb255 0 0 0)
                 , Element.Font.variant Element.Font.smallCaps
                 , Element.width (Element.fillPortion 1)
+                , Element.Background.color btnBackgroundColor
                 ]
-                { onPress = Just (MsgUserResponded btn)
+                { onPress = btnResponse
                 , label = Element.el [ Element.centerX ] (Element.text btn.textPart)
                 }
     in
@@ -285,12 +341,12 @@ viewQuestion question =
                 [ Element.width (Element.fillPortion 1)
                 , Element.padding 10
                 ]
-                [ Element.text question.stem ]
-            , viewQuestionImage question.image
+                [ Element.text model.currentQuestion.stem ]
+            , viewQuestionImage model.currentQuestion.image
             ]
         , Element.row
             [ Element.width Element.fill ]
-            (List.map drawButton question.possibleResponses)
+            (List.map drawButton model.currentQuestion.possibleResponses)
         ]
 
 
@@ -310,32 +366,6 @@ viewQuestionImage questionImage =
 
 
 
-{--
-viewScatterPlot : ScatterPlot -> Element.Element Msg
-viewScatterPlot sPlot =
-    Element.html
-        (Chart.chart
-            [ Chart.Attributes.height 300
-            , Chart.Attributes.width 300
-            , Chart.Attributes.padding { top = 30, bottom = 5, left = 40, right = 40 }
-            ]
-            [ Chart.xLabels [ Chart.Attributes.withGrid ]
-            , Chart.yLabels [ Chart.Attributes.withGrid ]
-            , Chart.series .x
-                [ Chart.scatter .y [ Chart.Attributes.opacity 0.3, Chart.Attributes.borderWidth 1 ]
-                    |> Chart.variation (\_ data -> [ Chart.Attributes.size data.size ])
-                , Chart.scatter .z [ Chart.Attributes.opacity 0.3, Chart.Attributes.borderWidth 1 ]
-                    |> Chart.variation (\_ data -> [ Chart.Attributes.size data.size ])
-                ]
-                [ { x = 1, y = 2, z = 3, size = 450 }
-                , { x = 2, y = 3, z = 5, size = 350 }
-                , { x = 3, y = 4, z = 2, size = 150 }
-                , { x = 4, y = 1, z = 3, size = 550 }
-                , { x = 5, y = 4, z = 1, size = 450 }
-                ]
-            ]
-        )
---}
 {-
    This is the model for the state. I keep the question in here along with keeping track of
    the user's response to the question being asked, how many questions the user has gotten
@@ -348,6 +378,7 @@ type alias Model =
     , masterySettings : MasterySettings
     , windowDimensions : WindowDimensions
     , currentQuestion : Question
+    , userResponse : Maybe QuestionResponse
     , debug : Bool -- Do we show debug information?
     }
 
@@ -358,41 +389,48 @@ createNewModel newWindowDimensions newMasterySettings =
     , masterySettings = newMasterySettings
     , windowDimensions = newWindowDimensions
     , currentQuestion = emptyQuestion
+    , userResponse = Nothing
     , debug = True
     }
 
 
 initializeModel : WindowDimensions -> ( Model, Cmd Msg )
 initializeModel windowDimensions =
+    -- Start the app with the window dimensions from the browser
+    -- and the default mastery settings
+    -- mastery settings will get updated through a message from
+    -- Torus almost immediately
     ( createNewModel windowDimensions defaultMasterySettings
-    , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
+      -- Create a new random question to display to the user
+      -- and wait for a response
+    , Random.generate MsgDisplayNewQuestion newQuestion
     )
 
 
 
 {-
    The flow for this program:
-   * Initialize the exercise
+    * Initialize the exercise (ports and init function)
        * Flags from JS -> window dimensions
        * getFromTorus port -> mastery settings (window, threshold)
-   * Make a question
-       * GetRandomQuestionParameters
-           - If the numbers combine to make unique answers -> GotRandomQuestion
-           - Otherwise -> GetNextQuestion
-   * Present the question and wait for a response
-   * Evaluate whether they got it right
-       * GotResponse
-           - If they are done, then send control back to Torus -> MsgSendToTorus and sendToTorus port
-           - Otherwise, get the next question -> GetNextQuestion
+    * Show a question and wait for user to respond
+        * Make a new random question [Random.generate MsgDisplayNewQuestion newQuestion]
+        * Display the new question
+    * User submits an answer so we process the response
+        * Give feedback associated with response
+        * Update progress bar
+    * Wait for user to read response and press a button to continue
+        * If the user is done, tell them to press a button to go back to Torus
+        * If the user is not done, tell them to press a button
 -}
 
 
 type Msg
-    = MsgSendToTorus -- The user reached the threshold, go back to Torus (send to JavaScript)
-    | MsgGetFromTorus MasterySettings -- Settings for mastery questions coming in from Torus (get from JavaScript)
+    = MsgReturnToTorus -- The user reached the threshold, go back to Torus (send to JavaScript)
+    | MsgUpdateMasterySettings MasterySettings -- Settings for mastery questions coming in from Torus (get from JavaScript)
     | MsgWindowSizeChanged Int Int -- Window changed size - maybe the device was rotated, maybe a change in the window
-    | MsgGetNewQuestion QuestionType -- Create a new random question of type <QuestionType>
-    | MsgGotNewQuestion Question -- I just created a new random question, display it
+    | MsgGetNewQuestion -- The user has read the feedback and has asked for the next question
+    | MsgDisplayNewQuestion Question -- I just created a new random question, display it
     | MsgUserResponded QuestionResponse -- User pressed a button to choose an answer to the question
 
 
@@ -400,11 +438,11 @@ updateModel : Msg -> Model -> ( Model, Cmd Msg )
 updateModel msg model =
     case msg of
         -- The user has demonstrated mastery, kick control back to Torus
-        MsgSendToTorus ->
+        MsgReturnToTorus ->
             ( model, sendToTorus True )
 
         -- Data to initialize the exercise has come in from Torus.
-        MsgGetFromTorus settings ->
+        MsgUpdateMasterySettings settings ->
             let
                 newMasterySettings : MasterySettings
                 newMasterySettings =
@@ -433,52 +471,60 @@ updateModel msg model =
             , Cmd.none
             )
 
-        -- We need a new random "which of these makes a good response variable?" question
-        MsgGetNewQuestion LinearRegressionResponseVariable ->
-            ( model
-            , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
-            )
+        -- The user has read the feedback and asked for a new question
+        MsgGetNewQuestion ->
+            ( model, Random.generate MsgDisplayNewQuestion newQuestion )
 
         -- We just got a new random question, so display it and wait for the user to respond
-        MsgGotNewQuestion newQuestion ->
-            ( { model | currentQuestion = newQuestion }
+        MsgDisplayNewQuestion newRandomQuestion ->
+            ( { model
+                | currentQuestion = newRandomQuestion
+                , userResponse = Nothing
+              }
             , Cmd.none
             )
 
-        -- The user responded, provide feedback, update the progress bar, check whether we're done or if
-        -- we should generate another question
-        MsgUserResponded userResponse ->
-            let
-                rightOrWrong =
-                    if userResponse.correctAnswer then
-                        RightAnswer
-
-                    else
-                        WrongAnswer
-            in
-            ( { model | progressBar = addToProgressBar model.masterySettings model.progressBar rightOrWrong }
-            , Random.generate MsgGotNewQuestion (newLinearRegressionResponseVariableQuestion rightAnswers distractors)
+        -- The user responded. We need to:
+        -- 1. provide feedback,
+        -- 2. update the progress bar
+        MsgUserResponded newUserResponse ->
+            ( { model
+                | userResponse = Just newUserResponse
+                , progressBar = addToProgressBar model.masterySettings model.progressBar newUserResponse.correctAnswer
+              }
+            , Cmd.none
+              -- , Random.generate MsgDisplayNewQuestion newQuestion
             )
 
 
 
 -- We need to generate a new random question
 {-
-   The view consists of five stacked panels. I only display/update the panels that I need to at any given time.
+   The view consists of stacked panels. I only display/update the panels that I need to at any given time.
 
     Instructions
     ----------------
-    Question
-    Image
-    Answer Buttons
-    ----------------
-    Feedback
-    ----------------
     Progress Bar
+    ----------------
+    Question | Image
+    Answer Buttons (Active)
     ----------------
     Debug Info
 
-   I use the status member of the model to determine which panels get displayed.
+
+    Instructions
+    ----------------
+    Progress Bar
+    ----------------
+    Question | Image
+    Answer Buttons (Not Active)
+    ----------------
+    Feedback
+    ----------------
+    Next Question Button / Go Back to Torus Button
+    ----------------
+    Debug Info
+
 -}
 
 
@@ -491,11 +537,70 @@ viewModel model =
         (Element.column
             [ Element.width Element.fill ]
             [ viewInstructionsPanel model.masterySettings
-            , viewQuestion model.currentQuestion
             , viewProgressBar model.progressBar
+            , viewQuestion model
+            , viewFeedback model
             , viewDebugPanel model
             ]
         )
+
+
+viewFeedback : Model -> Element.Element Msg
+viewFeedback model =
+    case model.userResponse of
+        Nothing ->
+            -- If the user hasn't made a choice, then we don't give any feedback
+            Element.none
+
+        Just userResponse ->
+            -- otherwise, the user has made a choice and we give them the right feedback
+            let
+                ( buttonMessage, buttonLabel ) =
+                    if masteryThresholdReached model then
+                        -- if mastery threshold is reached then we're done
+                        -- question button is the "let's go back to Torus" button
+                        ( MsgReturnToTorus
+                        , "Return to Lesson"
+                        )
+
+                    else
+                        -- if mastery threshold hasn't been reached then
+                        -- question button is "give me the next question" button
+                        ( MsgGetNewQuestion
+                        , "Next Question"
+                        )
+
+                nextBtn =
+                    Element.Input.button
+                        [ Element.padding 10
+                        , Element.Border.width 3
+                        , Element.Border.rounded 6
+                        , Element.Border.color (Element.rgb255 0 0 0)
+                        , Element.Font.variant Element.Font.smallCaps
+                        , Element.width (Element.fillPortion 1)
+                        ]
+                        { onPress = Just buttonMessage
+                        , label = Element.el [ Element.centerX ] (Element.text buttonLabel)
+                        }
+            in
+            Element.column
+                [ Element.width Element.fill
+                , Element.height (Element.fillPortion 3)
+                , Element.padding 20
+                , Element.explain Debug.todo
+                ]
+                [ Element.row
+                    [ Element.width Element.fill ]
+                    [ Element.column
+                        [ Element.width (Element.fillPortion 1)
+                        , Element.padding 10
+                        ]
+                        [ Element.text userResponse.feedback ]
+                    ]
+                , Element.row
+                    [ Element.width Element.fill ]
+                    [ nextBtn ]
+                ]
 
 
 viewInstructionsPanel : MasterySettings -> Element.Element Msg
@@ -583,57 +688,84 @@ ratioMeasures =
     ]
 
 
-rightAnswers : Array.Array String
-rightAnswers =
-    intervalMeasures
-        ++ ratioMeasures
-        |> Array.fromList
-
-
-distractors : Array.Array String
-distractors =
-    nominalMeasures
-        ++ ordinalMeasures
-        |> Array.fromList
-
-
-fillInLinearRegressionResponseVariableQuestion : Array.Array String -> Array.Array String -> Int -> Int -> Int -> Question
-fillInLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray correctAnswerIndex distractorIndex1 distractorIndex2 =
+listOfRightAnswers : List QuestionResponse
+listOfRightAnswers =
     let
-        correctAnswerLocal : QuestionResponse
-        correctAnswerLocal =
-            { textPart = Maybe.withDefault "This was supposed to be the right answer" (Array.get correctAnswerIndex rightAnswersArray)
-            , feedback = "You chose the right answer"
-            , correctAnswer = True
-            }
+        allRightAnswers : List String
+        allRightAnswers =
+            intervalMeasures ++ ratioMeasures
 
-        distractor1Local : QuestionResponse
-        distractor1Local =
-            { textPart = Maybe.withDefault "This was supposed to be an incorrect answer" (Array.get distractorIndex1 distractorsArray)
-            , feedback = "A response variable for linear regression must be an interval or ratio measure"
-            , correctAnswer = False
-            }
+        correctAnswerFlag : Bool
+        correctAnswerFlag =
+            True
 
-        distractor2Local : QuestionResponse
-        distractor2Local =
-            { textPart = Maybe.withDefault "This was supposed to be an incorrect answer" (Array.get distractorIndex2 distractorsArray)
-            , feedback = "A response variable for linear regression must be an interval or ratio measure"
-            , correctAnswer = False
-            }
+        responseFeedback : String
+        responseFeedback =
+            "That is correct!"
     in
-    { stem = "Which of these options is a valid response variable for linear regression equation?"
-    , image = Nothing
-    , possibleResponses = [ correctAnswerLocal, distractor1Local, distractor2Local ]
-    }
+    List.map (QuestionResponse correctAnswerFlag responseFeedback) allRightAnswers
 
 
-newLinearRegressionResponseVariableQuestion : Array.Array String -> Array.Array String -> Random.Generator Question
-newLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray =
-    -- I'm going to generate three random values and send them to a function
-    Random.map3
-        -- This function takes three random values and returns a value of type Question
-        (fillInLinearRegressionResponseVariableQuestion rightAnswersArray distractorsArray)
-        -- These are the things that generate the three random values
-        (Random.int 0 (Array.length rightAnswersArray - 1))
-        (Random.int 0 (Array.length distractorsArray - 1))
-        (Random.int 0 (Array.length distractorsArray - 1))
+listOfDistractors : List QuestionResponse
+listOfDistractors =
+    let
+        allDistractors : List String
+        allDistractors =
+            nominalMeasures ++ ordinalMeasures
+
+        correctAnswerFlag : Bool
+        correctAnswerFlag =
+            False
+
+        responseFeedback : String
+        responseFeedback =
+            "This is not a good choice for the response variable. The response variable in a linear regression equation must be an interval or a ratio."
+    in
+    List.map (QuestionResponse correctAnswerFlag responseFeedback) allDistractors
+
+
+randomListItem : List QuestionResponse -> Random.Generator ( Maybe QuestionResponse, List QuestionResponse )
+randomListItem choiceList =
+    -- Choose a random item from the list of question responses -> return a tuple with
+    -- * the random choicewrapped in a Maybe
+    -- * a list of everything else that wasn't chosen
+    Random.List.choose choiceList
+
+
+newListOfResponses : Int -> List QuestionResponse -> List QuestionResponse -> Random.Generator (List QuestionResponse)
+newListOfResponses numberOfDistractors rightAnswersP wrongAnswersP =
+    let
+        makeAListOfThree :
+            ( List QuestionResponse, List QuestionResponse ) -- list with one right answer and the right answers that weren't chosen
+            -> ( List QuestionResponse, List QuestionResponse ) -- list with <x> wrong answers and the wrong answers that weren't chosen
+            -> List QuestionResponse -- list with the chosen right and wrong answers
+        makeAListOfThree ( r, rs ) ( d, ds ) =
+            -- r is a list with one item: the right answer
+            -- d is a list with more than one item: the distractors
+            -- this function mushes them together into a single list
+            r ++ d
+    in
+    -- call the "makeAListOfThree" function with two parameters
+    Random.map2
+        -- call this function (the next two lines provide the parameters for this function)
+        makeAListOfThree
+        -- pick one right answer (you also get a list of right answers that weren't chosen)
+        (Random.List.choices 1 rightAnswersP)
+        -- pick <x> distractors (you also get a list of distractors that weren't chosen)
+        (Random.List.choices numberOfDistractors wrongAnswersP)
+
+
+newQuestion : Random.Generator Question
+newQuestion =
+    let
+        newStem =
+            "Which of these options is a valid response variable for linear regression equation?"
+
+        newImage =
+            Nothing
+    in
+    Random.map
+        (Question newStem newImage)
+        (newListOfResponses 2 listOfRightAnswers listOfDistractors
+            |> Random.andThen Random.List.shuffle
+        )
